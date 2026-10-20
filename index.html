@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro de tareas</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="contenedor">
+    <header class="cabecera">
+      <h1>Registro de tareas</h1>
+      <p id="fechaHoy"></p>
+    </header>
+
+    <form id="formTarea" class="nueva">
+      <input type="text" id="inputTarea" placeholder="¿Qué tarea vas a hacer?" required>
+      <button type="submit" class="btn">Iniciar tarea</button>
+    </form>
+
+    <h2>En curso</h2>
+    <ul id="listaPendientes" class="lista"></ul>
+
+    <h2>Terminadas</h2>
+    <ul id="listaTerminadas" class="lista"></ul>
+  </main>
+
+  <script>
+    const CLAVE = "tareas_diarias";
+    let tareas = JSON.parse(localStorage.getItem(CLAVE)) || [];
+
+    const guardar = () => localStorage.setItem(CLAVE, JSON.stringify(tareas));
+    const formatoFecha = (iso) =>
+      new Date(iso).toLocaleString("es-CO", { dateStyle: "short", timeStyle: "short" });
+
+    function duracion(inicio, fin) {
+      const min = Math.round((new Date(fin) - new Date(inicio)) / 60000);
+      const h = Math.floor(min / 60), m = min % 60;
+      return h > 0 ? `${h} h ${m} min` : `${m} min`;
+    }
+
+    function escapar(texto) {
+      const d = document.createElement("div");
+      d.textContent = texto;
+      return d.innerHTML;
+    }
+
+    function pintar() {
+      const pendientes = tareas.filter(t => !t.fin);
+      const terminadas = tareas.filter(t => t.fin);
+
+      document.getElementById("listaPendientes").innerHTML = pendientes.length
+        ? pendientes.map(t => `
+          <li class="item">
+            <div class="item-titulo">${escapar(t.titulo)}</div>
+            <div class="meta">Inició: ${formatoFecha(t.inicio)}</div>
+            <textarea id="desc-${t.id}" placeholder="Describe lo que realizaste"></textarea>
+            <div class="acciones">
+              <button class="btn" onclick="terminar(${t.id})">Terminar tarea</button>
+              <button class="btn-link" onclick="eliminar(${t.id})">Eliminar</button>
+            </div>
+          </li>`).join("")
+        : `<li class="vacio">No tienes tareas en curso.</li>`;
+
+      document.getElementById("listaTerminadas").innerHTML = terminadas.length
+        ? terminadas.map(t => `
+          <li class="item terminada">
+            <div class="item-titulo">${escapar(t.titulo)}</div>
+            <p class="descripcion">${escapar(t.descripcion)}</p>
+            <div class="meta">Inicio: ${formatoFecha(t.inicio)} · Fin: ${formatoFecha(t.fin)}</div>
+            <div class="duracion">Duración: ${duracion(t.inicio, t.fin)}</div>
+            <button class="btn-link" onclick="eliminar(${t.id})">Eliminar</button>
+          </li>`).join("")
+        : `<li class="vacio">Aún no has terminado tareas.</li>`;
+    }
+
+    document.getElementById("formTarea").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const input = document.getElementById("inputTarea");
+      tareas.unshift({ id: Date.now(), titulo: input.value.trim(), inicio: new Date().toISOString(), fin: null, descripcion: "" });
+      guardar();
+      input.value = "";
+      pintar();
+    });
+
+    function terminar(id) {
+      const desc = document.getElementById(`desc-${id}`).value.trim();
+      if (!desc) { alert("Escribe una descripción de lo que realizaste."); return; }
+      const tarea = tareas.find(t => t.id === id);
+      tarea.fin = new Date().toISOString();
+      tarea.descripcion = desc;
+      guardar();
+      pintar();
+    }
+
+    function eliminar(id) {
+      if (!confirm("¿Eliminar esta tarea?")) return;
+      tareas = tareas.filter(t => t.id !== id);
+      guardar();
+      pintar();
+    }
+
+    document.getElementById("fechaHoy").textContent =
+      new Date().toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    pintar();
+  </script>
+</body>
+</html>
